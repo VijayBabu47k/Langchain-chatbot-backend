@@ -1,6 +1,6 @@
-# FastChatbot Backend
+# Chatbot Engine Backend
 
-A well-organized, scalable Node.js backend for the FastChatbot application using Express.js and Socket.io.
+A well-organized, scalable Node.js backend for the Chatbot Engine application using Express.js and Socket.io.
 
 ## Project Structure
 
@@ -123,8 +123,85 @@ npm run dev
 3. **Adding Utilities**: Place reusable functions in `/utils`
 4. **Configuration**: Add all constants to `config/config.js`
 
+## API Request/Response Examples
+
+### Chat Streaming (SSE)
+**Request:**
+```bash
+POST /api/chat
+Content-Type: application/json
+
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello, how are you?"
+    }
+  ]
+}
+```
+
+**Response (Server-Sent Events):**
+```
+data: {"choices":[{"delta":{"content":"I'm"}}]}
+data: {"choices":[{"delta":{"content":" doing"}}]}
+data: {"choices":[{"delta":{"content":" well"}}]}
+data: [DONE]
+```
+
+### Image Generation
+**Request:**
+```bash
+POST /api/generate-image
+Content-Type: application/json
+
+{
+  "prompt": "A beautiful sunset over mountains"
+}
+```
+
+**Response:**
+```json
+{
+  "imageUrl": "data:image/png;base64,..."
+}
+```
+
+## Stream Processing
+
+The chat controller handles streaming responses from DeepInfra API:
+
+1. **Receives** SSE stream from external API
+2. **Parses** JSON chunks and extracts content deltas
+3. **Forwards** chunks to client with proper SSE formatting
+4. **Tracks** chunk metrics (total vs sent)
+5. **Handles** stream errors gracefully
+
+### Streaming Headers
+```javascript
+Content-Type: text/event-stream
+Cache-Control: no-cache
+Connection: keep-alive
+```
+
+## Recent Fixes
+
+### Stream Message Display (v1.0.1)
+- **Issue**: First stream messages weren't rendering in frontend
+- **Root Cause**: 
+  - Frontend was consuming first chunk in debug console.log
+  - Backend was clearing first line content of each chunk
+- **Solution**:
+  - Removed erroneous `await reader.read()` from frontend stream initialization
+  - Removed buggy content-clearing logic from backend chunk processing
+- **Files Modified**: 
+  - `controllers/chatController.js` (line 79)
+  - Frontend `ChatBox.jsx` (line 51)
+
 ## Notes
 
 - The backend uses DeepInfra API for both chat and image generation
-- Messages are pruned to maintain token limits
-- Socket.io is configured for both WebSocket and HTTP polling transports
+- Messages are pruned to maintain token limits (default: 8000 tokens)
+- Token calculation estimates ~4 tokens per word
+- SSE streaming provides real-time message delivery
+- All external API calls include proper error handling and logging
