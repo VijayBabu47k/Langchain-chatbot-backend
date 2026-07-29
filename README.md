@@ -25,40 +25,6 @@ backend/
 └── README.md               # This file
 ```
 
-## Directory Descriptions
-
-### `/config`
-Stores centralized configuration, environment variables, and constants used throughout the application.
-
-**Files:**
-- `config.js` - Loads and exports all configuration values
-
-### `/controllers`
-Contains business logic for each API endpoint. Controllers handle requests, validate input, and coordinate with external services.
-
-**Files:**
-- `chatController.js` - Handles chat streaming requests to DeepInfra API
-- `imageController.js` - Handles image generation requests
-
-### `/routes`
-Defines Express route handlers and maps them to controller functions.
-
-**Files:**
-- `chatRoutes.js` - Routes for `/api/chat` and `/api/health`
-- `imageRoutes.js` - Routes for `/api/generate-image` and `/api/image-health`
-
-### `/utils`
-Contains reusable utility functions and helpers.
-
-**Files:**
-- `tokenUtils.js` - Token estimation, context calculation, and message pruning
-
-### `/middleware`
-Custom middleware for request/response processing and error handling.
-
-**Files:**
-- `errorHandler.js` - Global error handling and 404 responses
-
 ## API Endpoints
 
 ### Chat Endpoints
@@ -83,8 +49,8 @@ Create a `.env` file based on `.env.example`:
 PORT=5000
 NODE_ENV=development
 DEEPINFRA_API_KEY=your_api_key_here
-CHAT_MODEL_NAME=meta-llama/Llama-2-70b-chat-hf
-IMAGE_MODEL_NAME=black-forest-labs/FLUX-2-klein-9b
+CHAT_MODEL_NAME=your_model
+IMAGE_MODEL_NAME=your_model
 ```
 
 ## Running the Server
@@ -115,13 +81,6 @@ npm run dev
 - ✅ **Error Handling** - Centralized error middleware
 - ✅ **Configuration Management** - Centralized config file
 - ✅ **Health Checks** - Service health monitoring endpoints
-
-## Development Guidelines
-
-1. **Adding New Routes**: Create new file in `/routes`, then import in `server.js`
-2. **Adding New Controllers**: Create new file in `/controllers`, import in routes
-3. **Adding Utilities**: Place reusable functions in `/utils`
-4. **Configuration**: Add all constants to `config/config.js`
 
 ## API Request/Response Examples
 
@@ -166,37 +125,6 @@ Content-Type: application/json
   "imageUrl": "data:image/png;base64,..."
 }
 ```
-
-## Stream Processing
-
-The chat controller handles streaming responses from DeepInfra API:
-
-1. **Receives** SSE stream from external API
-2. **Parses** JSON chunks and extracts content deltas
-3. **Forwards** chunks to client with proper SSE formatting
-4. **Tracks** chunk metrics (total vs sent)
-5. **Handles** stream errors gracefully
-
-### Streaming Headers
-```javascript
-Content-Type: text/event-stream
-Cache-Control: no-cache
-Connection: keep-alive
-```
-
-## Recent Fixes
-
-### Stream Message Display (v1.0.1)
-- **Issue**: First stream messages weren't rendering in frontend
-- **Root Cause**: 
-  - Frontend was consuming first chunk in debug console.log
-  - Backend was clearing first line content of each chunk
-- **Solution**:
-  - Removed erroneous `await reader.read()` from frontend stream initialization
-  - Removed buggy content-clearing logic from backend chunk processing
-- **Files Modified**: 
-  - `controllers/chatController.js` (line 79)
-  - Frontend `ChatBox.jsx` (line 51)
 
 ## Notes
 
