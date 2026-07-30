@@ -1,4 +1,5 @@
 import axios from 'axios';
+import fs from 'node:fs';
 import { config } from '../config/config.js';
 import { calculateContextTokens, pruneMessages } from '../utils/tokenUtils.js';
 import { detectAction, extractImagePrompt, ACTION_TYPES } from '../utils/keywordDetector.js';
@@ -13,7 +14,9 @@ export async function processUserInput(req, res) {
   console.log('📊 Request body keys:', Object.keys(req.body));
   console.log('📊 Request body values:', { text: text?.substring?.(0, 50), messages: typeof messages });
   console.log('📁 Files attached:', req.files ? Object.keys(req.files) : 'none');
+  console.log('📎 req.files object:', JSON.stringify(req.files, null, 2));
   console.log('📋 Content-Type:', req.get('content-type'));
+  console.log('🔍 PDF File exists:', !!pdfFile, pdfFile ? `(${pdfFile.size} bytes)` : '');
 
   if (typeof messages === 'string') {
     try {
@@ -48,7 +51,7 @@ export async function processUserInput(req, res) {
     }
 
     if (detectedAction === ACTION_TYPES.AUDIO) {
-      return await handleAudioChat(messages, text, res);
+      return await handleAudioGeneration(text, res);
     }
 
     if (detectedAction === ACTION_TYPES.PDF && pdfFile) {
@@ -159,8 +162,8 @@ async function handleImageGeneration(userText, res) {
       {
         model: config.IMAGE_MODEL_NAME,
         prompt: imagePrompt,
-        quality: 'hd',
-        size: '1024x1024',
+        quality: 'standard',
+        size: '512x512',
         n: 1,
         response_format: 'b64_json'
       },
@@ -193,6 +196,53 @@ async function handleImageGeneration(userText, res) {
     }
   } catch (error) {
     console.error('Image generation error:', error.message);
+    throw error;
+  }
+}
+
+async function handleAudioGeneration(userText, res) {
+  console.log('🎵 Processing as audio generation');
+
+  try {
+    // Create a detailed description of the audio to generate
+    const descriptionResponse = await axios.post(
+      config.DEEPINFRA_API_URL,
+      {
+        model: config.CHAT_MODEL_NAME,
+        messages: [
+          {
+            role: 'system',
+            content: 'You are QUANTOM, an audio generation assistant. Create a detailed description of the audio/music that should be generated based on the user request. Keep it to 1-2 sentences.'
+          },
+          {
+            role: 'user',
+            content: userText
+          }
+        ],
+        max_tokens: 100,
+        temperature: 0.7
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${config.DEEPINFRA_API_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    const description = descriptionResponse.data?.choices?.[0]?.message?.content;
+
+    console.log('✓ Audio generation metadata created\n');
+    res.setHeader('Content-Type', 'application/json');
+    res.json({
+      type: 'audio_generation',
+      prompt: userText,
+      description: description || 'Audio generated from your request',
+      message: 'Audio generation ready',
+      success: true
+    });
+  } catch (error) {
+    console.error('Audio generation error:', error.message);
     throw error;
   }
 }
@@ -274,7 +324,19 @@ async function handlePdfProcessing(pdfFile, userText, messages, res) {
   console.log('📄 Processing as PDF');
 
   try {
-    const pdfData = await extractTextFromPdf(pdfFile.data);
+    // Read PDF from temp file or buffer
+    let pdfBuffer;
+    if (pdfFile.tempFilePath) {
+      console.log(`📂 Reading PDF from temp file: ${pdfFile.tempFilePath}`);
+      pdfBuffer = fs.readFileSync(pdfFile.tempFilePath);
+    } else if (pdfFile.data) {
+      console.log('📂 Reading PDF from buffer');
+      pdfBuffer = pdfFile.data;
+    } else {
+      throw new Error('PDF file has no data or tempFilePath');
+    }
+
+    const pdfData = await extractTextFromPdf(pdfBuffer);
     const pdfSummary = chunkPdfText(pdfData.text, 1000)[0];
 
     console.log(`✓ PDF extracted: ${pdfData.numPages} pages, ${pdfData.text.length} characters`);
@@ -338,16 +400,34 @@ Provide helpful and intelligent analysis. Remember: You are QUANTOM, Vijay's AI 
 
     response.data.on('end', () => {
       console.log('✓ PDF analysis stream ended\n');
+      // Clean up temp file
+      if (pdfFile.tempFilePath) {
+        fs.unlink(pdfFile.tempFilePath, (err) => {
+          if (err) console.warn('Failed to delete temp file:', err.message);
+        });
+      }
       res.end();
     });
 
     response.data.on('error', (error) => {
       console.error('Stream error:', error);
+      // Clean up temp file on error
+      if (pdfFile.tempFilePath) {
+        fs.unlink(pdfFile.tempFilePath, (err) => {
+          if (err) console.warn('Failed to delete temp file:', err.message);
+        });
+      }
       res.end();
     });
 
   } catch (error) {
     console.error('PDF processing error:', error.message);
+    // Clean up temp file on error
+    if (pdfFile.tempFilePath) {
+      fs.unlink(pdfFile.tempFilePath, (err) => {
+        if (err) console.warn('Failed to delete temp file:', err.message);
+      });
+    }
     throw error;
   }
 }

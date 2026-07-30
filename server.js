@@ -11,7 +11,15 @@ const app = express();
 
 // Middleware
 app.use(cors({ origin: config.CORS_ORIGIN }));
-app.use(fileUpload());
+app.use(fileUpload({
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  useTempFiles: true,
+  tempFileDir: '/tmp/',
+  safeFileNames: true,
+  preserveExtension: true,
+  abortOnLimit: true,
+  responseOnLimit: 'File is too large',
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

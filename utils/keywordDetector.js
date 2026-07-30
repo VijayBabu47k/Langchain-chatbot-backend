@@ -11,16 +11,23 @@ export const ACTION_TYPES = {
 // Fallback simple keywords for quick detection before AI analysis
 const QUICK_KEYWORDS = {
   IMAGE: ['generate image', 'create image', 'draw', 'create picture', 'visualize', 'design', 'sketch'],
-  AUDIO: ['read this', 'speak', 'audio', 'voice', 'text to speech'],
+  AUDIO: ['read this', 'speak', 'audio', 'voice', 'text to speech', 'generate audio', 'create audio', 'generate music', 'create music', 'make sound', 'generate sound', 'tts'],
   PDF: ['pdf', 'document', 'summarize']
 };
 
 // Quick fallback detection - fast keyword check
 function quickDetect(userInput, hasPdfFile = false) {
   if (!userInput) return ACTION_TYPES.CHAT;
+
+  // PDF takes absolute priority when file is attached
   if (hasPdfFile) return ACTION_TYPES.PDF;
 
   const lowerInput = userInput.toLowerCase();
+
+  // Check PDF keywords first (priority over AUDIO)
+  for (const keyword of QUICK_KEYWORDS.PDF) {
+    if (lowerInput.includes(keyword)) return ACTION_TYPES.PDF;
+  }
 
   for (const keyword of QUICK_KEYWORDS.IMAGE) {
     if (lowerInput.includes(keyword)) return ACTION_TYPES.IMAGE;
@@ -28,10 +35,6 @@ function quickDetect(userInput, hasPdfFile = false) {
 
   for (const keyword of QUICK_KEYWORDS.AUDIO) {
     if (lowerInput.includes(keyword)) return ACTION_TYPES.AUDIO;
-  }
-
-  for (const keyword of QUICK_KEYWORDS.PDF) {
-    if (lowerInput.includes(keyword)) return ACTION_TYPES.PDF;
   }
 
   return ACTION_TYPES.CHAT;
