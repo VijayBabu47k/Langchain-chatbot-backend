@@ -1,15 +1,19 @@
 import express from 'express';
 import cors from 'cors';
+import fileUpload from 'express-fileupload';
 
 import { config } from './config/config.js';
 import chatRoutes from './routes/chatRoutes.js';
 import imageRoutes from './routes/imageRoutes.js';
+import unifiedRoutes from './routes/unifiedRoutes.js';
 
 const app = express();
 
 // Middleware
 app.use(cors({ origin: config.CORS_ORIGIN }));
+app.use(fileUpload());
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // Logging Middleware
 app.use((req, res, next) => {
@@ -18,6 +22,7 @@ app.use((req, res, next) => {
 });
 
 // Routes
+app.use('/api', unifiedRoutes);
 app.use('/api', chatRoutes);
 app.use('/api', imageRoutes);
 
